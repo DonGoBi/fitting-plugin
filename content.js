@@ -1,4 +1,3 @@
-// content.js
 (function() {
     let controller = null;
 
@@ -13,39 +12,48 @@
         document.body.appendChild(host);
         const shadow = host.attachShadow({mode: 'open'});
         
+        // 1. 아바타 박스
         const avatarBox = document.createElement('div');
         avatarBox.id = 'avatar-box';
         avatarBox.style.cssText = 'position:fixed; top:150px; left:150px; z-index:2147483646; touch-action:none; cursor:grab;';
-        avatarBox.innerHTML = AVATAR_BOX_HTML;
+        avatarBox.innerHTML = '<div id="canvas-wrapper"><canvas id="avatar-canvas"></canvas></div>';
 
+        // 2. 리모컨 박스 (z-index 최상위)
         const controlBox = document.createElement('div');
         controlBox.id = 'control-box';
         controlBox.style.cssText = `position:fixed; top:20px; left:${window.innerWidth - 280}px; z-index:2147483647; background:#1e1e1e; color:#fff; padding:12px; border-radius:12px; width:250px; box-shadow:0 10px 30px rgba(0,0,0,0.5); border:1px solid #333; font-family:sans-serif;`;
-        controlBox.innerHTML = CONTROL_BOX_HTML;
+        controlBox.innerHTML = CONTROL_BOX_HTML; // templates.js 사용[cite: 10]
+
+        // 3. 지우개 가이드 (Shadow Root에 추가하여 계층 분리)
+        const brushGuide = document.createElement('div');
+        brushGuide.id = 'brush-guide';
         
         const style = document.createElement('style');
-        style.textContent = UI_STYLES;
+        style.textContent = UI_STYLES; // styles.js 사용[cite: 9]
 
         shadow.appendChild(style);
         shadow.appendChild(avatarBox);
         shadow.appendChild(controlBox);
+        shadow.appendChild(brushGuide);
 
         const canvas = shadow.getElementById('avatar-canvas');
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        const brushGuide = shadow.getElementById('brush-guide');
         const ctrlContent = shadow.getElementById('ctrl-content');
         const btnMin = shadow.getElementById('btn-min');
         const ctrlDragHandle = shadow.getElementById('ctrl-drag-handle');
+        
         const bSlider = shadow.getElementById('filter-bright');
         const cSlider = shadow.getElementById('filter-contrast');
         const sSlider = shadow.getElementById('filter-saturate');
         const brushSlider = shadow.getElementById('range-brush');
         const scaleSlider = shadow.getElementById('range-scale');
-        const rotateSlider = shadow.getElementById('range-rotate'); // 추가
+        const rotateSlider = shadow.getElementById('range-rotate'); 
         const opacitySlider = shadow.getElementById('range-opacity');
 
         let imgObj = new Image();
         let isEraserMode = false;
+        let isAdjustingBrush = false; // 슬라이더 조절 중 여부
+        let isOverControl = false;    // 마우스가 리모컨 위에 있는지 여부
 
         const updateGuideSize = () => {
             const r = canvas.getBoundingClientRect();
@@ -54,20 +62,13 @@
             brushGuide.style.height = displaySize + 'px';
         };
 
-        btnMin.onclick = () => {
-            const isMin = controlBox.classList.toggle('minimized');
-            ctrlContent.style.display = isMin ? 'none' : 'flex';
-            btnMin.innerText = isMin ? '+' : '─';
-            controlBox.style.width = isMin ? '120px' : '250px';
-        };
-
         const updateStyles = () => {
             canvas.style.filter = `brightness(${bSlider.value}) contrast(${cSlider.value}) saturate(${sSlider.value})`;
             canvas.style.opacity = opacitySlider.value;
-            // 회전(rotate) 속성 추가
             canvas.style.transform = `scale(${scaleSlider.value}) rotate(${rotateSlider.value}deg)`;
             updateGuideSize();
         };
+
         [bSlider, cSlider, sSlider, opacitySlider, scaleSlider, rotateSlider, brushSlider].forEach(s => s.oninput = updateStyles);
 
         const drawImage = (src) => {
@@ -77,14 +78,28 @@
             updateStyles();
         };
 
+        btnMin.onclick = () => {
+            const isMin = controlBox.classList.toggle('minimized');
+            ctrlContent.style.display = isMin ? 'none' : 'flex';
+            btnMin.innerText = isMin ? '+' : '─';
+            controlBox.style.width = isMin ? '120px' : '250px';
+        };
+
         shadow.getElementById('btn-reset').onclick = () => {
             if(confirm("모든 설정을 초기 상태로 되돌리시겠습니까?")) {
                 bSlider.value = 1; cSlider.value = 1; sSlider.value = 1;
-                scaleSlider.value = 1; rotateSlider.value = 0; // 기울기도 초기화
+                scaleSlider.value = 1; rotateSlider.value = 0;
                 opacitySlider.value = 1; brushSlider.value = 40;
                 drawImage();
             }
         };
+
+        // 지우개 슬라이더 이벤트: 조절 중일 때는 가이드를 무조건 표시
+        brushSlider.onmousedown = () => { isAdjustingBrush = true; };
+        
+        // 리모컨 영역 진입/이탈 감지
+        controlBox.onmouseenter = () => { isOverControl = true; };
+        controlBox.onmouseleave = () => { isOverControl = false; };
 
         const saveToSlot = (n) => {
             const currentName = shadow.getElementById(`load-${n}`).innerText;
@@ -121,6 +136,7 @@
         shadow.querySelectorAll('.slot-btn').forEach(b => b.onclick = () => loadFromSlot(b.dataset.slot));
 
         let isMovingAvatar = false, isPainting = false, isMovingCtrl = false, lastX, lastY;
+        
         avatarBox.onmousedown = (e) => {
             if (isEraserMode) { 
                 isPainting = true; 
@@ -129,6 +145,7 @@
                 lastY = (e.clientY - r.top) * (canvas.height / r.height); 
             } else { isMovingAvatar = true; lastX = e.clientX; lastY = e.clientY; }
         };
+
         ctrlDragHandle.onmousedown = (e) => { if (e.target !== btnMin) { isMovingCtrl = true; lastX = e.clientX; lastY = e.clientY; } };
 
         window.addEventListener('mousemove', (e) => {
@@ -142,9 +159,17 @@
                 avatarBox.style.top = (avatarBox.offsetTop + (e.clientY - lastY)) + 'px';
                 lastX = e.clientX; lastY = e.clientY;
             }
-            if (isEraserMode) {
-                brushGuide.style.display = 'block'; brushGuide.style.left = e.clientX + 'px'; brushGuide.style.top = e.clientY + 'px';
-                if (isPainting) {
+            
+            // ★ 가이드 노출 조건 로직
+            // 1. 슬라이더 조절 중이면 무조건 표시
+            // 2. 리모컨 영역 밖이고 지우개 모드이면 표시
+            // 3. 리모컨 영역 안이면 슬라이더 조절 중일 때만 표시 (그 외엔 숨김)
+            if (isAdjustingBrush || (!isOverControl && isEraserMode)) {
+                brushGuide.style.display = 'block';
+                brushGuide.style.left = e.clientX + 'px';
+                brushGuide.style.top = e.clientY + 'px';
+                
+                if (isPainting && isEraserMode) {
                     const r = canvas.getBoundingClientRect();
                     const curX = (e.clientX - r.left) * (canvas.width / r.width);
                     const curY = (e.clientY - r.top) * (canvas.height / r.height);
@@ -152,13 +177,17 @@
                     ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(curX, curY); ctx.stroke();
                     lastX = curX; lastY = curY;
                 }
-            } else { brushGuide.style.display = 'none'; }
+            } else {
+                brushGuide.style.display = 'none';
+            }
         }, { signal });
 
-        window.addEventListener('mouseup', () => { isMovingAvatar = false; isPainting = false; isMovingCtrl = false; }, { signal });
+        window.addEventListener('mouseup', () => { 
+            isMovingAvatar = false; isPainting = false; isMovingCtrl = false; isAdjustingBrush = false; 
+        }, { signal });
 
-        canvas.addEventListener('mouseleave', () => { brushGuide.style.display = 'none'; canvas.classList.remove('hide-cursor'); });
-        canvas.addEventListener('mouseenter', () => { if (isEraserMode) { brushGuide.style.display = 'block'; canvas.classList.add('hide-cursor'); } });
+        canvas.addEventListener('mouseleave', () => { canvas.classList.remove('hide-cursor'); });
+        canvas.addEventListener('mouseenter', () => { if (isEraserMode && !isOverControl) canvas.classList.add('hide-cursor'); });
 
         shadow.getElementById('mode-move').onclick = () => { 
             isEraserMode = false; shadow.getElementById('mode-move').classList.add('active'); shadow.getElementById('mode-erase').classList.remove('active');
@@ -190,7 +219,20 @@
         chrome.storage.local.get(['avatarData'], (res) => { if(res.avatarData) { imgObj.onload = () => drawImage(); imgObj.src = res.avatarData; } });
     }
 
-    function removeUI() { const root = document.getElementById('avatar-fitting-root'); if (root) root.remove(); if (controller) controller.abort(); }
-    chrome.storage.local.get(['enabled'], (res) => { if (res.enabled !== false) createUI(); });
-    chrome.storage.onChanged.addListener((changes) => { if (changes.enabled) { if (changes.enabled.newValue) createUI(); else removeUI(); } });
+    function removeUI() {
+        const root = document.getElementById('avatar-fitting-root');
+        if (root) root.remove();
+        if (controller) { controller.abort(); controller = null; }
+    }
+
+    chrome.storage.local.get(['enabled'], (res) => {
+        if (res.enabled !== false) createUI();
+    });
+
+    chrome.storage.onChanged.addListener((changes) => {
+        if (changes.enabled) {
+            if (changes.enabled.newValue) createUI();
+            else removeUI();
+        }
+    });
 })();
