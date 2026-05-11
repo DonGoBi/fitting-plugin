@@ -226,6 +226,11 @@
         const loadFromSlot = (n) => {
             chrome.storage.local.get([`avatar_slot_${n}`], (res) => {
                 const data = res[`avatar_slot_${n}`];
+                if (!data) {
+                    alert('저장된 룩이 없습니다.');
+                    return;
+                }
+
                 if (data) {
                     const i = new Image();
                     const src = typeof data === 'string' ? data : data.img;
@@ -238,6 +243,7 @@
                         persistAvatarState(src, style);
                         shadow.getElementById(`load-${n}`).innerText = name;
                     };
+                    i.onerror = () => alert('룩을 불러오지 못했습니다. 다시 저장해 주세요.');
                     i.src = src;
                 }
             });
@@ -281,7 +287,7 @@
                 lastX = e.clientX; lastY = e.clientY;
             }
             
-            // ★ 가이드 노출 조건 로직
+            // 지우개 가이드 노출 조건
             // 1. 슬라이더 조절 중이면 무조건 표시
             // 2. 리모컨 영역 밖이고 지우개 모드이면 표시
             // 3. 리모컨 영역 안이면 슬라이더 조절 중일 때만 표시 (그 외엔 숨김)
@@ -334,12 +340,13 @@
                 }
                 const r = new FileReader(); 
                 r.onload = (ev) => {
-                    setResetState(ev.target.result);
-                    persistAvatarState(ev.target.result);
                     imgObj.onload = () => {
                         drawImage();
                         applyStyleState();
+                        setResetState(ev.target.result);
+                        persistAvatarState(ev.target.result);
                     };
+                    imgObj.onerror = () => alert('사진을 불러오지 못했습니다. 다른 이미지로 다시 시도해 주세요.');
                     imgObj.src = ev.target.result;
                 };
                 r.onerror = () => alert('사진을 불러오지 못했습니다. 다시 시도해 주세요.');
