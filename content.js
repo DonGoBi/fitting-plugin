@@ -65,8 +65,8 @@
         };
 
         const updateGuideSize = () => {
-            const r = canvas.getBoundingClientRect();
-            const displaySize = brushSlider.value * (r.width / canvas.width);
+            const canvasWidth = canvas.offsetWidth || canvas.width;
+            const displaySize = brushSlider.value * (canvasWidth / canvas.width) * scaleSlider.value;
             brushGuide.style.width = displaySize + 'px';
             brushGuide.style.height = displaySize + 'px';
         };
@@ -86,6 +86,26 @@
             ctx.globalCompositeOperation = 'source-over';
             ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(t, 0, 0);
             updateStyles();
+        };
+
+        const getCanvasPoint = (e) => {
+            const boxRect = avatarBox.getBoundingClientRect();
+            const canvasWidth = canvas.offsetWidth || canvas.width;
+            const canvasHeight = canvas.offsetHeight || canvas.height;
+            const style = getComputedStyle(canvas);
+            const transform = style.transform === 'none' ? new DOMMatrix() : new DOMMatrix(style.transform);
+            const [originX, originY] = style.transformOrigin.split(' ').map(value => parseFloat(value));
+            const point = new DOMPoint(e.clientX - boxRect.left, e.clientY - boxRect.top);
+            const matrix = new DOMMatrix()
+                .translate(originX, originY)
+                .multiply(transform)
+                .translate(-originX, -originY);
+            const localPoint = point.matrixTransform(matrix.inverse());
+
+            return {
+                x: localPoint.x * (canvas.width / canvasWidth),
+                y: localPoint.y * (canvas.height / canvasHeight)
+            };
         };
 
         const getCurrentStyleState = () => ({
@@ -193,9 +213,9 @@
         avatarBox.onmousedown = (e) => {
             if (isEraserMode) { 
                 isPainting = true; 
-                const r = canvas.getBoundingClientRect(); 
-                lastX = (e.clientX - r.left) * (canvas.width / r.width); 
-                lastY = (e.clientY - r.top) * (canvas.height / r.height); 
+                const point = getCanvasPoint(e);
+                lastX = point.x;
+                lastY = point.y;
             } else { isMovingAvatar = true; lastX = e.clientX; lastY = e.clientY; }
         };
 
@@ -223,9 +243,9 @@
                 brushGuide.style.top = e.clientY + 'px';
                 
                 if (isPainting && isEraserMode) {
-                    const r = canvas.getBoundingClientRect();
-                    const curX = (e.clientX - r.left) * (canvas.width / r.width);
-                    const curY = (e.clientY - r.top) * (canvas.height / r.height);
+                    const point = getCanvasPoint(e);
+                    const curX = point.x;
+                    const curY = point.y;
                     ctx.globalCompositeOperation = 'destination-out'; ctx.lineWidth = brushSlider.value; ctx.lineCap = 'round';
                     ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(curX, curY); ctx.stroke();
                     lastX = curX; lastY = curY;
