@@ -51,10 +51,18 @@
         const opacitySlider = shadow.getElementById('range-opacity');
 
         let imgObj = new Image();
-        let resetImageSrc = null;
+        let resetState = null;
         let isEraserMode = false;
         let isAdjustingBrush = false; // 슬라이더 조절 중 여부
         let isOverControl = false;    // 마우스가 리모컨 위에 있는지 여부
+        const defaultStyleState = {
+            brightness: '1',
+            contrast: '1',
+            saturate: '1',
+            scale: '1',
+            rotate: '0',
+            opacity: '1'
+        };
 
         const updateGuideSize = () => {
             const r = canvas.getBoundingClientRect();
@@ -80,6 +88,46 @@
             updateStyles();
         };
 
+        const getCurrentStyleState = () => ({
+            brightness: bSlider.value,
+            contrast: cSlider.value,
+            saturate: sSlider.value,
+            scale: scaleSlider.value,
+            rotate: rotateSlider.value,
+            opacity: opacitySlider.value
+        });
+
+        const applyStyleState = (style = defaultStyleState) => {
+            const nextStyle = { ...defaultStyleState, ...style };
+            bSlider.value = nextStyle.brightness;
+            cSlider.value = nextStyle.contrast;
+            sSlider.value = nextStyle.saturate;
+            scaleSlider.value = nextStyle.scale;
+            rotateSlider.value = nextStyle.rotate;
+            opacitySlider.value = nextStyle.opacity;
+            updateStyles();
+        };
+
+        const setResetState = (img, style = defaultStyleState) => {
+            resetState = { img, style: { ...defaultStyleState, ...style } };
+        };
+
+        const restoreResetState = () => {
+            if (!resetState?.img) {
+                applyStyleState();
+                drawImage();
+                return;
+            }
+
+            const state = resetState;
+            const resetImage = new Image();
+            resetImage.onload = () => {
+                drawImage(resetImage);
+                applyStyleState(state.style);
+            };
+            resetImage.src = state.img;
+        };
+
         btnMin.onclick = () => {
             const isMin = controlBox.classList.toggle('minimized');
             ctrlContent.style.display = isMin ? 'none' : 'flex';
@@ -89,16 +137,7 @@
 
         shadow.getElementById('btn-reset').onclick = () => {
             if(confirm("모든 설정을 초기 상태로 되돌리시겠습니까?")) {
-                bSlider.value = 1; cSlider.value = 1; sSlider.value = 1;
-                scaleSlider.value = 1; rotateSlider.value = 0;
-                opacitySlider.value = 1; brushSlider.value = 40;
-                if (resetImageSrc) {
-                    const resetImage = new Image();
-                    resetImage.onload = () => drawImage(resetImage);
-                    resetImage.src = resetImageSrc;
-                } else {
-                    drawImage();
-                }
+                restoreResetState();
             }
         };
 
@@ -113,7 +152,7 @@
             const currentName = shadow.getElementById(`load-${n}`).innerText;
             const lookName = prompt(`${n}번 룩의 이름을 입력하세요`, currentName);
             if (lookName === null) return;
-            const data = { img: canvas.toDataURL(), name: lookName };
+            const data = { img: canvas.toDataURL(), name: lookName, style: getCurrentStyleState() };
             chrome.storage.local.set({[`avatar_slot_${n}`]: data}, () => {
                 shadow.getElementById(`load-${n}`).innerText = lookName;
                 alert(`저장되었습니다.`);
@@ -127,7 +166,13 @@
                     const i = new Image();
                     const src = typeof data === 'string' ? data : data.img;
                     const name = data.name || `룩 ${n}`;
-                    i.onload = () => { resetImageSrc = src; drawImage(i); shadow.getElementById(`load-${n}`).innerText = name; };
+                    const style = typeof data === 'string' ? defaultStyleState : data.style;
+                    i.onload = () => {
+                        drawImage(i);
+                        applyStyleState(style);
+                        setResetState(src, style);
+                        shadow.getElementById(`load-${n}`).innerText = name;
+                    };
                     i.src = src;
                 }
             });
@@ -209,7 +254,14 @@
             const up = document.createElement('input'); up.type = 'file'; 
             up.onchange = (e) => { 
                 const r = new FileReader(); 
-                r.onload = (ev) => { resetImageSrc = ev.target.result; imgObj.onload = () => drawImage(); imgObj.src = ev.target.result; }; 
+                r.onload = (ev) => {
+                    setResetState(ev.target.result);
+                    imgObj.onload = () => {
+                        drawImage();
+                        applyStyleState();
+                    };
+                    imgObj.src = ev.target.result;
+                }; 
                 r.readAsDataURL(e.target.files[0]); 
             }; 
             up.click(); 
@@ -224,7 +276,16 @@
             if (isEraserMode) ctx.globalCompositeOperation = 'destination-out';
         };
         
-        chrome.storage.local.get(['avatarData'], (res) => { if(res.avatarData) { resetImageSrc = res.avatarData; imgObj.onload = () => drawImage(); imgObj.src = res.avatarData; } });
+        chrome.storage.local.get(['avatarData'], (res) => {
+            if(res.avatarData) {
+                setResetState(res.avatarData);
+                imgObj.onload = () => {
+                    drawImage();
+                    applyStyleState();
+                };
+                imgObj.src = res.avatarData;
+            }
+        });
     }
 
     function removeUI() {
