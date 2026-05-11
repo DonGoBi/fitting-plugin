@@ -1,9 +1,4 @@
 // templates.js
-const AVATAR_BOX_HTML = `
-    <div id="canvas-wrapper"><canvas id="avatar-canvas"></canvas></div>
-    <div id="brush-guide"></div>
-`;
-
 const CONTROL_BOX_HTML = `
     <div class="ctrl-header" id="ctrl-drag-handle"><b>피팅 리모컨</b><button class="min-btn" id="btn-min">─</button></div>
     <div class="ctrl-content" id="ctrl-content">

@@ -22,14 +22,14 @@
         const controlBox = document.createElement('div');
         controlBox.id = 'control-box';
         controlBox.style.cssText = `position:fixed; top:20px; left:${window.innerWidth - 280}px; z-index:2147483647; background:#1e1e1e; color:#fff; padding:12px; border-radius:12px; width:250px; box-shadow:0 10px 30px rgba(0,0,0,0.5); border:1px solid #333; font-family:sans-serif;`;
-        controlBox.innerHTML = CONTROL_BOX_HTML; // templates.js 사용[cite: 10]
+        controlBox.innerHTML = CONTROL_BOX_HTML;
 
         // 3. 지우개 가이드 (Shadow Root에 추가하여 계층 분리)
         const brushGuide = document.createElement('div');
         brushGuide.id = 'brush-guide';
         
         const style = document.createElement('style');
-        style.textContent = UI_STYLES; // styles.js 사용[cite: 9]
+        style.textContent = UI_STYLES;
 
         shadow.appendChild(style);
         shadow.appendChild(avatarBox);
@@ -132,6 +132,15 @@
             resetState = { img, style: { ...defaultStyleState, ...style } };
         };
 
+        const persistAvatarState = (img, style = defaultStyleState) => {
+            chrome.storage.local.set({
+                avatarState: {
+                    img,
+                    style: { ...defaultStyleState, ...style }
+                }
+            });
+        };
+
         const restoreResetState = () => {
             if (!resetState?.img) {
                 applyStyleState();
@@ -191,6 +200,7 @@
                         drawImage(i);
                         applyStyleState(style);
                         setResetState(src, style);
+                        persistAvatarState(src, style);
                         shadow.getElementById(`load-${n}`).innerText = name;
                     };
                     i.src = src;
@@ -276,6 +286,7 @@
                 const r = new FileReader(); 
                 r.onload = (ev) => {
                     setResetState(ev.target.result);
+                    persistAvatarState(ev.target.result);
                     imgObj.onload = () => {
                         drawImage();
                         applyStyleState();
@@ -296,14 +307,15 @@
             if (isEraserMode) ctx.globalCompositeOperation = 'destination-out';
         };
         
-        chrome.storage.local.get(['avatarData'], (res) => {
-            if(res.avatarData) {
-                setResetState(res.avatarData);
+        chrome.storage.local.get(['avatarState'], (res) => {
+            const state = res.avatarState;
+            if(state?.img) {
+                setResetState(state.img, state.style);
                 imgObj.onload = () => {
                     drawImage();
-                    applyStyleState();
+                    applyStyleState(state.style);
                 };
-                imgObj.src = res.avatarData;
+                imgObj.src = state.img;
             }
         });
     }

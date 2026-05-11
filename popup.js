@@ -19,7 +19,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const isEnabled = toggle.checked;
         chrome.storage.local.set({ enabled: isEnabled }, () => {
             updateUI(isEnabled);
-            console.log("Status saved:", isEnabled);
         });
     });
 });
