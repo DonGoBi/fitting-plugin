@@ -40,6 +40,7 @@
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         const ctrlContent = shadow.getElementById('ctrl-content');
         const btnMin = shadow.getElementById('btn-min');
+        const btnVisibility = shadow.getElementById('btn-visibility');
         const ctrlDragHandle = shadow.getElementById('ctrl-drag-handle');
         
         const bSlider = shadow.getElementById('filter-bright');
@@ -52,7 +53,9 @@
 
         let imgObj = new Image();
         let resetState = null;
+        let hasImage = false;
         let isEraserMode = false;
+        let isAvatarVisible = true;
         let isAdjustingBrush = false; // 슬라이더 조절 중 여부
         let isOverControl = false;    // 마우스가 리모컨 위에 있는지 여부
         const defaultStyleState = {
@@ -62,6 +65,18 @@
             scale: '1',
             rotate: '0',
             opacity: '1'
+        };
+
+        const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+        const moveControlBox = (left, top) => {
+            const rect = controlBox.getBoundingClientRect();
+            const margin = 8;
+            const maxLeft = Math.max(margin, window.innerWidth - rect.width - margin);
+            const maxTop = Math.max(margin, window.innerHeight - rect.height - margin);
+
+            controlBox.style.left = clamp(left, margin, maxLeft) + 'px';
+            controlBox.style.top = clamp(top, margin, maxTop) + 'px';
         };
 
         const updateGuideSize = () => {
@@ -85,7 +100,16 @@
             canvas.width = t.width; canvas.height = t.height;
             ctx.globalCompositeOperation = 'source-over';
             ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(t, 0, 0);
+            hasImage = true;
             updateStyles();
+        };
+
+        const hasDrawableImage = () => hasImage && canvas.width > 0 && canvas.height > 0;
+
+        const requireImage = () => {
+            if (hasDrawableImage()) return true;
+            alert('먼저 사진을 업로드하거나 룩을 불러와 주세요.');
+            return false;
         };
 
         const getCanvasPoint = (e) => {
@@ -161,10 +185,20 @@
             const isMin = controlBox.classList.toggle('minimized');
             ctrlContent.style.display = isMin ? 'none' : 'flex';
             btnMin.innerText = isMin ? '+' : '─';
-            controlBox.style.width = isMin ? '120px' : '250px';
+            controlBox.style.width = isMin ? '150px' : '250px';
+            moveControlBox(parseInt(controlBox.style.left), parseInt(controlBox.style.top));
+        };
+
+        btnVisibility.onclick = () => {
+            isAvatarVisible = !isAvatarVisible;
+            avatarBox.style.display = isAvatarVisible ? 'block' : 'none';
+            btnVisibility.innerText = isAvatarVisible ? '숨김' : '보기';
+            brushGuide.style.display = 'none';
+            canvas.classList.remove('hide-cursor');
         };
 
         shadow.getElementById('btn-reset').onclick = () => {
+            if (!requireImage()) return;
             if(confirm("모든 설정을 초기 상태로 되돌리시겠습니까?")) {
                 restoreResetState();
             }
@@ -178,6 +212,7 @@
         controlBox.onmouseleave = () => { isOverControl = false; };
 
         const saveToSlot = (n) => {
+            if (!requireImage()) return;
             const currentName = shadow.getElementById(`load-${n}`).innerText;
             const lookName = prompt(`${n}번 룩의 이름을 입력하세요`, currentName);
             if (lookName === null) return;
@@ -222,6 +257,7 @@
         
         avatarBox.onmousedown = (e) => {
             if (isEraserMode) { 
+                if (!hasDrawableImage()) return;
                 isPainting = true; 
                 const point = getCanvasPoint(e);
                 lastX = point.x;
@@ -229,12 +265,14 @@
             } else { isMovingAvatar = true; lastX = e.clientX; lastY = e.clientY; }
         };
 
-        ctrlDragHandle.onmousedown = (e) => { if (e.target !== btnMin) { isMovingCtrl = true; lastX = e.clientX; lastY = e.clientY; } };
+        ctrlDragHandle.onmousedown = (e) => { if (!e.target.closest('button')) { isMovingCtrl = true; lastX = e.clientX; lastY = e.clientY; } };
 
         window.addEventListener('mousemove', (e) => {
             if (isMovingCtrl) {
-                controlBox.style.left = (parseInt(controlBox.style.left) + (e.clientX - lastX)) + 'px';
-                controlBox.style.top = (parseInt(controlBox.style.top) + (e.clientY - lastY)) + 'px';
+                moveControlBox(
+                    parseInt(controlBox.style.left) + (e.clientX - lastX),
+                    parseInt(controlBox.style.top) + (e.clientY - lastY)
+                );
                 lastX = e.clientX; lastY = e.clientY;
             }
             if (isMovingAvatar) {
@@ -269,6 +307,10 @@
             isMovingAvatar = false; isPainting = false; isMovingCtrl = false; isAdjustingBrush = false; 
         }, { signal });
 
+        window.addEventListener('resize', () => {
+            moveControlBox(parseInt(controlBox.style.left), parseInt(controlBox.style.top));
+        }, { signal });
+
         canvas.addEventListener('mouseleave', () => { canvas.classList.remove('hide-cursor'); });
         canvas.addEventListener('mouseenter', () => { if (isEraserMode && !isOverControl) canvas.classList.add('hide-cursor'); });
 
@@ -277,12 +319,19 @@
             brushGuide.style.display = 'none'; canvas.classList.remove('hide-cursor');
         };
         shadow.getElementById('mode-erase').onclick = () => { 
+            if (!requireImage()) return;
             isEraserMode = true; shadow.getElementById('mode-erase').classList.add('active'); shadow.getElementById('mode-move').classList.remove('active');
         };
 
         shadow.getElementById('btn-upload').onclick = () => { 
-            const up = document.createElement('input'); up.type = 'file'; 
+            const up = document.createElement('input'); up.type = 'file'; up.accept = 'image/*'; 
             up.onchange = (e) => { 
+                const file = e.target.files?.[0];
+                if (!file) return;
+                if (!file.type.startsWith('image/')) {
+                    alert('이미지 파일만 업로드할 수 있습니다.');
+                    return;
+                }
                 const r = new FileReader(); 
                 r.onload = (ev) => {
                     setResetState(ev.target.result);
@@ -292,13 +341,15 @@
                         applyStyleState();
                     };
                     imgObj.src = ev.target.result;
-                }; 
-                r.readAsDataURL(e.target.files[0]); 
+                };
+                r.onerror = () => alert('사진을 불러오지 못했습니다. 다시 시도해 주세요.');
+                r.readAsDataURL(file); 
             }; 
             up.click(); 
         };
         
         shadow.getElementById('btn-flip').onclick = () => {
+            if (!requireImage()) return;
             const temp = document.createElement('canvas'); temp.width = canvas.width; temp.height = canvas.height;
             temp.getContext('2d').drawImage(canvas, 0, 0);
             ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,canvas.width,canvas.height);

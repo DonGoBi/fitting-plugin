@@ -1,6 +1,12 @@
 // templates.js
 const CONTROL_BOX_HTML = `
-    <div class="ctrl-header" id="ctrl-drag-handle"><b>피팅 리모컨</b><button class="min-btn" id="btn-min">─</button></div>
+    <div class="ctrl-header" id="ctrl-drag-handle">
+        <b>피팅 리모컨</b>
+        <div class="header-actions">
+            <button class="visibility-btn" id="btn-visibility">숨김</button>
+            <button class="min-btn" id="btn-min">─</button>
+        </div>
+    </div>
     <div class="ctrl-content" id="ctrl-content">
         <button id="btn-upload" style="background:#28a745; font-weight: bold; padding: 10px; margin-bottom: 4px;">📷 사진 업로드</button>
         

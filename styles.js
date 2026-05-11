@@ -3,13 +3,23 @@ const UI_STYLES = `
     .hide-cursor { cursor: none !important; }
     canvas { display: block; width: 200px; transition: transform 0.1s; }
     .ctrl-header { display: flex; justify-content: space-between; align-items: center; cursor: move; border-bottom: 1px solid #333; padding-bottom: 8px; margin-bottom: 4px; }
-    .ctrl-header b { color: #00d4ff; font-size: 13px; pointer-events: none; }
+    .ctrl-header b {
+        color: #00d4ff; font-size: 13px; pointer-events: none;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+    }
+    .header-actions { display: flex; align-items: center; gap: 6px; }
     .min-btn { 
         all: unset; cursor: pointer; background: #444; color: white; border-radius: 4px; 
         width: 24px !important; height: 24px !important; min-width: 24px !important; max-width: 24px !important;
         display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold;
     }
     .min-btn:hover { background: #666; }
+    .visibility-btn {
+        all: unset; cursor: pointer; background: #2b3a40; color: #d8f7ff; border: 1px solid #3f5961; border-radius: 4px;
+        width: 42px !important; height: 24px !important; min-width: 42px !important; max-width: 42px !important;
+        display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold;
+    }
+    .visibility-btn:hover { background: #374c54; }
     .ctrl-content { display: flex; flex-direction: column; gap: 8px; }
     .mode-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; }
     .slot-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
