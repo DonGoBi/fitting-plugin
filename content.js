@@ -51,6 +51,7 @@
         const opacitySlider = shadow.getElementById('range-opacity');
 
         let imgObj = new Image();
+        let resetImageSrc = null;
         let isEraserMode = false;
         let isAdjustingBrush = false; // 슬라이더 조절 중 여부
         let isOverControl = false;    // 마우스가 리모컨 위에 있는지 여부
@@ -74,6 +75,7 @@
         const drawImage = (src) => {
             const t = src || imgObj; if (!t.src && !t.width) return;
             canvas.width = t.width; canvas.height = t.height;
+            ctx.globalCompositeOperation = 'source-over';
             ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(t, 0, 0);
             updateStyles();
         };
@@ -90,7 +92,13 @@
                 bSlider.value = 1; cSlider.value = 1; sSlider.value = 1;
                 scaleSlider.value = 1; rotateSlider.value = 0;
                 opacitySlider.value = 1; brushSlider.value = 40;
-                drawImage();
+                if (resetImageSrc) {
+                    const resetImage = new Image();
+                    resetImage.onload = () => drawImage(resetImage);
+                    resetImage.src = resetImageSrc;
+                } else {
+                    drawImage();
+                }
             }
         };
 
@@ -119,7 +127,7 @@
                     const i = new Image();
                     const src = typeof data === 'string' ? data : data.img;
                     const name = data.name || `룩 ${n}`;
-                    i.onload = () => { drawImage(i); shadow.getElementById(`load-${n}`).innerText = name; };
+                    i.onload = () => { resetImageSrc = src; drawImage(i); shadow.getElementById(`load-${n}`).innerText = name; };
                     i.src = src;
                 }
             });
@@ -201,7 +209,7 @@
             const up = document.createElement('input'); up.type = 'file'; 
             up.onchange = (e) => { 
                 const r = new FileReader(); 
-                r.onload = (ev) => { imgObj.onload = () => drawImage(); imgObj.src = ev.target.result; }; 
+                r.onload = (ev) => { resetImageSrc = ev.target.result; imgObj.onload = () => drawImage(); imgObj.src = ev.target.result; }; 
                 r.readAsDataURL(e.target.files[0]); 
             }; 
             up.click(); 
@@ -216,7 +224,7 @@
             if (isEraserMode) ctx.globalCompositeOperation = 'destination-out';
         };
         
-        chrome.storage.local.get(['avatarData'], (res) => { if(res.avatarData) { imgObj.onload = () => drawImage(); imgObj.src = res.avatarData; } });
+        chrome.storage.local.get(['avatarData'], (res) => { if(res.avatarData) { resetImageSrc = res.avatarData; imgObj.onload = () => drawImage(); imgObj.src = res.avatarData; } });
     }
 
     function removeUI() {
