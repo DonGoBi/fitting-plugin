@@ -15,7 +15,7 @@
         // 1. 아바타 박스
         const avatarBox = document.createElement('div');
         avatarBox.id = 'avatar-box';
-        avatarBox.style.cssText = 'position:fixed; top:150px; left:150px; z-index:2147483646; touch-action:none; cursor:grab;';
+        avatarBox.style.cssText = 'position:fixed; top:150px; left:150px; z-index:2147483646; touch-action:none; display:none; pointer-events:none;';
         avatarBox.innerHTML = '<div id="canvas-wrapper"><canvas id="avatar-canvas"></canvas></div>';
 
         // 2. 리모컨 박스 (z-index 최상위)
@@ -69,6 +69,13 @@
 
         const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
+        const updateAvatarBoxState = () => {
+            const shouldShowAvatar = isAvatarVisible && hasDrawableImage();
+            avatarBox.style.display = shouldShowAvatar ? 'block' : 'none';
+            avatarBox.style.pointerEvents = shouldShowAvatar ? 'auto' : 'none';
+            avatarBox.style.cursor = shouldShowAvatar ? 'grab' : 'default';
+        };
+
         const moveControlBox = (left, top) => {
             const rect = controlBox.getBoundingClientRect();
             const margin = 8;
@@ -101,6 +108,7 @@
             ctx.globalCompositeOperation = 'source-over';
             ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(t, 0, 0);
             hasImage = true;
+            updateAvatarBoxState();
             updateStyles();
         };
 
@@ -191,7 +199,7 @@
 
         btnVisibility.onclick = () => {
             isAvatarVisible = !isAvatarVisible;
-            avatarBox.style.display = isAvatarVisible ? 'block' : 'none';
+            updateAvatarBoxState();
             btnVisibility.innerText = isAvatarVisible ? '숨김' : '보기';
             brushGuide.style.display = 'none';
             canvas.classList.remove('hide-cursor');
@@ -262,8 +270,8 @@
         let isMovingAvatar = false, isPainting = false, isMovingCtrl = false, lastX, lastY;
         
         avatarBox.onmousedown = (e) => {
+            if (!hasDrawableImage()) return;
             if (isEraserMode) { 
-                if (!hasDrawableImage()) return;
                 isPainting = true; 
                 const point = getCanvasPoint(e);
                 lastX = point.x;
