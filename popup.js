@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 1. 초기 상태 로드
     chrome.storage.local.get(['enabled'], (res) => {
-        const isEnabled = res.enabled !== false; // 기본값 On
+        const isEnabled = res.enabled === true; // 기본값 Off
         toggle.checked = isEnabled;
         updateUI(isEnabled);
     });

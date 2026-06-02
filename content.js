@@ -393,7 +393,7 @@
     }
 
     chrome.storage.local.get(['enabled'], (res) => {
-        if (res.enabled !== false) createUI();
+        if (res.enabled === true) createUI();
     });
 
     chrome.storage.onChanged.addListener((changes) => {
